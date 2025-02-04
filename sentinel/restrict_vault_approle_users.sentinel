@@ -1,0 +1,30 @@
+import "tfconfig/v2" as tfconfig
+
+# List of allowed approle Role-Ids
+allowed_list = ["abc-123-789", "def-123-456"]
+
+# Filter for all providers not in root module
+nonRootProviders = filter tfconfig.providers as address, p {
+  p.module_address is not ""
+}
+
+# Filter to non-root Vault providers only
+nonRootProvidersWithConfig = filter nonRootProviders as address, p {
+  length(p.config) is not 0 and p.name is "vault" and
+  print("Provider", p.name, "was defined in module", p.module_address)
+}
+
+# Filter to non-root Vault providers and check the role-id they authenticate with.
+violatingProviders = filter nonRootProvidersWithConfig as address, p {
+  p.config.auth_login[0].parameters.constant_value.role_id not in allowed_list and
+  print(p.module_address, "is not allowed because its auth role", p.config.auth_login[0].parameters.constant_value.role_id,
+        "is in the allowed_list:", allowed_list)
+}
+
+# Determine if there were any violations
+violations = length(violatingProviders)
+
+# Main rule
+main = rule {
+ violations is 0
+}
